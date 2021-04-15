@@ -49,7 +49,7 @@ var role = {};
 var baseUrl = '../images/'
 
 // 获取两点的角度
-function rotateToPoint(mx, my, px, py){ 
+function rotateToPoint(mx, my, px, py){
   var dist_Y = my - py;
   var dist_X = mx - px;
   var angle = Math.atan2(dist_Y,dist_X);
@@ -138,7 +138,8 @@ function drawRect(x,y,width,height,linewidth){
 function onDragStart(event) {
   event.stopPropagation();
   this.data = event.data;
-  this.dragging = true;
+    this.diff = { x: event.data.global.x - this.x, y: event.data.global.y - this.y }
+    this.dragging = true;
 }
 
 function onDragEnd() {
@@ -150,7 +151,7 @@ function onDragEnd() {
 function onDragMove(){
   if (this.dragging) {
     var newPosition = this.data.getLocalPosition(this.parent);
-    var rotation = rotateToPoint(newPosition.x, newPosition.y, this.position.x, this.position.y);
+    var rotation = rotateToPoint( newPosition.x , newPosition.y, this.position.x, this.position.y) - Math.PI / 2;
     this.rotation = rotation
   }
 }
@@ -191,6 +192,20 @@ var Toast = {
       me.hide();
     },1500)
   }
+}
+
+
+var Dialog = {
+    show: function(imgSrc){
+        this.hide();
+        var tpl = `<div class="dialog"><img src="${imgSrc}"/><span onclick="Dialog.hide()">x</span><label>长按图片保存</label></div>`
+        $('body').append('<div class="overlay"></div>').append(tpl);
+        $('body').find('.dialog').show();
+    },
+    hide: function(){
+        $('body').find('.overlay').remove();
+        $('body').find('.dialog').remove();
+    },
 }
 
 //清除矩形框
@@ -295,7 +310,7 @@ function drawRole(index) {
       var right_arm_hand = new PIXI.Container();
       var right_leg_foot = new PIXI.Container();
 
-      
+
       left_arm_hand.addChild(left_hand);
       left_arm_hand.addChild(left_arm);
 
@@ -307,9 +322,9 @@ function drawRole(index) {
 
       right_leg_foot.addChild(right_foot);
       right_leg_foot.addChild(right_leg);
-      
+
       main.addChild(right_arm_hand);
-      
+
       main.addChild(body);
       main.addChild(left_leg_foot);
       main.addChild(right_leg_foot);
@@ -409,16 +424,17 @@ function drawRole(index) {
 
       main.on('pointerdown', function(event){
             this.data = event.data;
+            this.diff = { x: event.data.global.x - this.x, y: event.data.global.y - this.y }
             this.dragging = true;
             clearRects();
           })
           .on('pointerup', onDragEnd)
           .on('pointerupoutside', onDragEnd)
-          .on('pointermove', function(){
+          .on('pointermove', function(event){
             if (this.dragging) {
               var newPosition = this.data.getLocalPosition(this.parent);
-              this.x = newPosition.x;
-              this.y = newPosition.y;
+              this.x = newPosition.x - this.diff.x;
+              this.y = newPosition.y - this.diff.y;
             }
           });
 
@@ -468,7 +484,7 @@ function drawObject(index){
     rects.push(rect);
 
     var actions = drawActions();
-   
+
     rect.addChild(actions);
     container.addChild(rect);
     container.addChild(object);
@@ -582,6 +598,25 @@ function resize(number){
   app.renderer.resize(app.screen.width,app.screen.height+(number))
 }
 
+function download(imgUrl) {
+    if (window.navigator.msSaveOrOpenBlob) {
+        var bstr = atob(imgUrl.split(',')[1])
+        var n = bstr.length
+        var u8arr = new Uint8Array(n)
+        while (n--) {
+            u8arr[n] = bstr.charCodeAt(n)
+        }
+        var blob = new Blob([u8arr])
+        window.navigator.msSaveOrOpenBlob(blob, 'chart-download' + '.' + 'png')
+    } else {
+        // 这里就按照chrome等新版浏览器来处理
+        const a = document.createElement('a')
+        a.href = imgUrl
+        a.setAttribute('download', +new Date() + "")
+        a.click()
+    }
+}
+
 $(function(){
 
   drawScene(1);
@@ -624,7 +659,8 @@ $(function(){
     clearRects();
     setTimeout(function(){
       var image = app.view.toDataURL('image/png');
-      console.log(image);
+      // download(image)
+      Dialog.show(image);
     },100)
   });
 });

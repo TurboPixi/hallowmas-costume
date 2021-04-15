@@ -1,16 +1,16 @@
 {
-  "name": "hallowmas-costume",
+  "name": "pixi-cosplay",
   "version": "1.0.0",
-  "description": "万圣节戏精装扮俱乐部",
+  "description": "图片生成器",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "serve src"
+    "start": "live-server src --port=5000"
   },
   "keywords": [],
   "author": "",
-  "license": "ISC",
+  "license": "MIT",
   "dependencies": {
-    "serve": "^11.3.2"
+    "live-server": "^1.2.1"
   }
 }
