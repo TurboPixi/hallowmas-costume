@@ -4,7 +4,7 @@ var app = new PIXI.Application({ backgroundColor: 0xffffff, forceCanvas: true, a
 app.renderer.view.style.position = "absolute";
 app.renderer.view.style.display = "block";
 app.renderer.view.style.zIndex = "100";
-app.renderer.autoResize = true;
+app.renderer.autoDensity = true;
 app.renderer.resize(window.innerWidth, window.innerHeight-controlHeight);
 document.body.appendChild(app.view);
 
@@ -36,7 +36,8 @@ if (!HTMLCanvasElement.prototype.toBlob) {
 //场景
 var scenes = {};
 //控制条
-var bars = ['role','mask','scene','object'];
+// var bars = ['role','mask','scene','object'];
+var bars = ['scene','object'];
 //小物件
 var objects = {};
 //矩形框
@@ -47,6 +48,14 @@ var activeContainer = null;
 var role = {};
 
 var baseUrl = '../images/'
+
+var angleScale = {
+    angle: 0,
+    scale: {
+        x: 1,
+        y: 1,
+    }
+}
 
 // 获取两点的角度
 function rotateToPoint(mx, my, px, py){
@@ -71,7 +80,7 @@ function drawDash(x0, y0, x1, y1, linewidth) {
   dashed.lineTo(linewidth * 2.5, 0);
   var dashedtexture = dashed.generateCanvasTexture(1, 1);
   var linelength = Math.pow(Math.pow(x1 - x0, 2) + Math.pow(y1 - y0, 2), 0.5);
-  var tilingSprite = new PIXI.extras.TilingSprite(dashedtexture, linelength, linewidth);
+  var tilingSprite = new PIXI.TilingSprite(dashedtexture, linelength, linewidth);
   tilingSprite.x = x0;
   tilingSprite.y = y0;
   tilingSprite.rotation = angle(x0, y0, x1, y1) * Math.PI / 180;
@@ -157,7 +166,8 @@ function onDragMove(){
 }
 
 function onObjectDragStart(event){
-  this.data = event.data;
+    this.diff = { x: event.data.global.x - this.x, y: event.data.global.y - this.y }
+    this.data = event.data;
   // this.alpha = 0.5;
   this.dragging = true;
   clearRects();
@@ -169,9 +179,16 @@ function onObjectDragStart(event){
 function onObjectDragMove(){
   if (this.dragging) {
     var newPosition = this.data.getLocalPosition(this.parent);
-    this.x = newPosition.x;
-    this.y = newPosition.y;
+    this.x = newPosition.x - this.diff.x;
+    this.y = newPosition.y - this.diff.y;
   }
+}
+
+function openNewWindowShowImage(img) {
+    const newWin = window.open('', '_blank')
+    newWin.document.write(img.outerHTML)
+    newWin.document.title = ''
+    newWin.document.close()
 }
 
 var Toast = {
@@ -207,6 +224,17 @@ var Dialog = {
         $('body').find('.dialog').remove();
     },
 }
+var ImageLoader = {
+    show: function(imgSrc){
+        this.hide();
+        var tpl = `<div class="imageLoader"><img src="${imgSrc}"/></div>`
+        $('body').append(tpl);
+        $('body').find('.dialog').show();
+    },
+    hide: function(){
+        $('body').find('.imageLoader').remove();
+    },
+}
 
 //清除矩形框
 function clearRects(){
@@ -224,7 +252,7 @@ function drawScene(index){
   })
 
   if(!scenes[url]){
-    var scene = PIXI.Sprite.fromImage(url);
+    var scene = PIXI.Sprite.from(url);
     scene.width = app.screen.width;
     scene.height = app.screen.height+controlHeight;
     scene.interactive = true;
@@ -251,7 +279,7 @@ function drawRole(index) {
   var leg_img = baseUrl + "/clothes"+ index +"_leg.png";
   var foot_img = baseUrl + "/clothes"+ index +"_foot.png";
 
-  PIXI.loader
+  PIXI.Loader.shared
     .add(head_img)
     .add(body_img)
     .add(arm_img)
@@ -260,34 +288,34 @@ function drawRole(index) {
     .add(foot_img)
     .load(function(){
       var head = new PIXI.Sprite(
-          PIXI.loader.resources[head_img].texture
+          PIXI.Loader.shared.resources[head_img].texture
       );
       var body = new PIXI.Sprite(
-          PIXI.loader.resources[body_img].texture
+          PIXI.Loader.shared.resources[body_img].texture
       );
       var left_arm = new PIXI.Sprite(
-          PIXI.loader.resources[arm_img].texture
+          PIXI.Loader.shared.resources[arm_img].texture
       );
       var left_hand = new PIXI.Sprite(
-          PIXI.loader.resources[hand_img].texture
+          PIXI.Loader.shared.resources[hand_img].texture
       );
       var right_arm = new PIXI.Sprite(
-          PIXI.loader.resources[arm_img].texture
+          PIXI.Loader.shared.resources[arm_img].texture
       );
       var right_hand = new PIXI.Sprite(
-          PIXI.loader.resources[hand_img].texture
+          PIXI.Loader.shared.resources[hand_img].texture
       );
       var left_leg = new PIXI.Sprite(
-          PIXI.loader.resources[leg_img].texture
+          PIXI.Loader.shared.resources[leg_img].texture
       );
       var left_foot = new PIXI.Sprite(
-          PIXI.loader.resources[foot_img].texture
+          PIXI.Loader.shared.resources[foot_img].texture
       );
       var right_leg = new PIXI.Sprite(
-          PIXI.loader.resources[leg_img].texture
+          PIXI.Loader.shared.resources[leg_img].texture
       );
       var right_foot = new PIXI.Sprite(
-          PIXI.loader.resources[foot_img].texture
+          PIXI.Loader.shared.resources[foot_img].texture
       );
 
       role = {
@@ -442,28 +470,7 @@ function drawRole(index) {
   });
 }
 
-//绘制小物件
-function drawObject(index){
-  clearRects();
-  var url = baseUrl + "/object" + index + '.png';
-  var object = null;
-
-  if(objects[url]){
-    object = PIXI.Sprite.fromImage(url);
-    setup(object);
-  }else{
-    PIXI.loader
-      .add(url)
-      .load(function(){
-        object = new PIXI.Sprite(
-          PIXI.loader.resources[url].texture
-        );
-        objects[url] = true;
-        setup(object);
-    })
-  }
-
-  function setup(object){
+function setup(object){
     var positionX = positionY = getRandom(100,150);
 
     var container = new PIXI.Container();
@@ -476,6 +483,7 @@ function drawObject(index){
     object.width = object.width/2;
     object.height = object.height/2;
 
+
     var rect = drawRect(object.getGlobalPosition().x-10,object.getGlobalPosition().y-10,object.width+20,object.height+20,1)
     rect.interactive = true;
     rect.buttonMode = true;
@@ -483,7 +491,7 @@ function drawObject(index){
 
     rects.push(rect);
 
-    var actions = drawActions();
+    var actions = drawActions(object);
 
     rect.addChild(actions);
     container.addChild(rect);
@@ -494,21 +502,50 @@ function drawObject(index){
     actions.position.set(container.width+12,-12);
 
     container
-      .on('pointerdown', onObjectDragStart)
-      .on('pointerup', onDragEnd)
-      .on('pointerupoutside', onDragEnd)
-      .on('pointermove', onObjectDragMove)
+        .on('pointerdown', onObjectDragStart)
+        .on('pointerup', onDragEnd)
+        .on('pointerupoutside', onDragEnd)
+        .on('pointermove', onObjectDragMove)
 
     app.stage.addChild(container);
-  }
+}
+
+function drawObject(url) {
+    var object = null;
+    if(objects[url]){
+        object = PIXI.Sprite.from(url);
+        setup(object);
+    }else{
+        PIXI.Loader.shared
+            .add(url)
+            .load(function(){
+                object = new PIXI.Sprite(
+                    PIXI.Loader.shared.resources[url].texture
+                );
+                objects[url] = true;
+                setup(object);
+            })
+    }
+}
+
+//绘制小物件
+function drawMiniObject(index){
+  clearRects();
+  var url = baseUrl + "/object" + index + '.png';
+  drawObject(url);
+}
+//绘制上传物件
+function drawUploadObject(imgSrc) {
+    clearRects();
+    drawObject(imgSrc)
 }
 
 //绘制操作按钮
-function drawActions(){
+function drawActions(object){
   var container = new PIXI.Container();
   container.zIndex = 5;
 
-  var close = PIXI.Sprite.fromImage(baseUrl + "/icons/close.png");
+  var close = PIXI.Sprite.from(baseUrl + "/icons/close.png");
   close.scale.set(0.7);
   close.position.set(0,-8);
   close.interactive = true;
@@ -518,7 +555,7 @@ function drawActions(){
     container.visible = false;
   });
 
-  var zoomin = PIXI.Sprite.fromImage(baseUrl + "/icons/zoomin.png");
+  var zoomin = PIXI.Sprite.from(baseUrl + "/icons/zoomin.png");
   zoomin.scale.set(0.8);
   zoomin.position.set(0,15);
   zoomin.interactive = true;
@@ -528,7 +565,7 @@ function drawActions(){
     activeContainer.scale.y *= 1.25;
   });
 
-  var zoomout = PIXI.Sprite.fromImage(baseUrl + "/icons/zoomout.png");
+  var zoomout = PIXI.Sprite.from(baseUrl + "/icons/zoomout.png");
   zoomout.scale.set(0.8);
   zoomout.position.set(0,40);
   zoomout.interactive = true;
@@ -538,7 +575,7 @@ function drawActions(){
     activeContainer.scale.y /= 1.25;
   });
 
-  var rotateright = PIXI.Sprite.fromImage(baseUrl + "/icons/rotate-right.png");
+  var rotateright = PIXI.Sprite.from(baseUrl + "/icons/rotate-right.png");
   rotateright.scale.set(0.8);
   rotateright.position.set(0,65);
   rotateright.interactive = true;
@@ -549,7 +586,7 @@ function drawActions(){
       activeContainer.rotation = activeContainer.degrees * Math.PI / 180;
     })
 
-  var rotateleft = PIXI.Sprite.fromImage(baseUrl + "/icons/rotate-left.png");
+  var rotateleft = PIXI.Sprite.from(baseUrl + "/icons/rotate-left.png");
   rotateleft.scale.set(0.8);
   rotateleft.position.set(0,90);
   rotateleft.interactive = true;
@@ -559,7 +596,6 @@ function drawActions(){
       activeContainer.degrees = activeContainer.degrees-10;
       activeContainer.rotation = activeContainer.degrees * Math.PI / 180;
     })
-
   container.addChild(close);
   container.addChild(zoomin);
   container.addChild(zoomout);
@@ -572,21 +608,21 @@ function drawActions(){
 // 绘制面具
 function drawMask(index){
   var url = baseUrl + "/mask" + index + '.png';
-  var texture = PIXI.Texture.fromImage(url);
+  var texture = PIXI.Texture.from(url);
   role.head.texture = texture;
 }
 
 // 绘制衣服
 function drawClothes(index){
-  role.body.texture = PIXI.Texture.fromImage(baseUrl + '/clothes'+index+'_body.png');
-  role.left_arm.texture = PIXI.Texture.fromImage(baseUrl + '/clothes'+index+'_arm.png');
-  role.left_hand.texture = PIXI.Texture.fromImage(baseUrl + '/clothes'+index+'_hand.png');
-  role.left_leg.texture = PIXI.Texture.fromImage(baseUrl + '/clothes'+index+'_leg.png');
-  role.left_foot.texture = PIXI.Texture.fromImage(baseUrl + '/clothes'+index+'_foot.png');
-  role.right_arm.texture = PIXI.Texture.fromImage(baseUrl + '/clothes'+index+'_arm.png');
-  role.right_hand.texture = PIXI.Texture.fromImage(baseUrl + '/clothes'+index+'_hand.png');
-  role.right_leg.texture = PIXI.Texture.fromImage(baseUrl + '/clothes'+index+'_leg.png');
-  role.right_foot.texture = PIXI.Texture.fromImage(baseUrl + '/clothes'+index+'_foot.png');
+  role.body.texture = PIXI.Texture.from(baseUrl + '/clothes'+index+'_body.png');
+  role.left_arm.texture = PIXI.Texture.from(baseUrl + '/clothes'+index+'_arm.png');
+  role.left_hand.texture = PIXI.Texture.from(baseUrl + '/clothes'+index+'_hand.png');
+  role.left_leg.texture = PIXI.Texture.from(baseUrl + '/clothes'+index+'_leg.png');
+  role.left_foot.texture = PIXI.Texture.from(baseUrl + '/clothes'+index+'_foot.png');
+  role.right_arm.texture = PIXI.Texture.from(baseUrl + '/clothes'+index+'_arm.png');
+  role.right_hand.texture = PIXI.Texture.from(baseUrl + '/clothes'+index+'_hand.png');
+  role.right_leg.texture = PIXI.Texture.from(baseUrl + '/clothes'+index+'_leg.png');
+  role.right_foot.texture = PIXI.Texture.from(baseUrl + '/clothes'+index+'_foot.png');
 }
 
 function scrollIntoView(dom){
@@ -598,6 +634,7 @@ function resize(number){
   app.renderer.resize(app.screen.width,app.screen.height+(number))
 }
 
+// 下载图片
 function download(imgUrl) {
     if (window.navigator.msSaveOrOpenBlob) {
         var bstr = atob(imgUrl.split(',')[1])
@@ -617,10 +654,32 @@ function download(imgUrl) {
     }
 }
 
+
+// h5 file reader
+function getBase64( thisFiles ) {
+    return new Promise((resolve, reject) => {
+        var reader = new FileReader();
+        reader.readAsDataURL( thisFiles );
+        reader.onload = function(e){
+            const base64 = this.result;
+            var img = new Image();
+            img.onload = function(){
+                resolve({
+                    url: base64,
+                    height: img.height,
+                    width: img.width
+                })
+            };
+            img.src = base64
+        }
+    })
+};
+
 $(function(){
 
   drawScene(1);
-  drawRole(1);
+  drawMiniObject(1);
+    // drawRole(1);
 
   $('.js-control-bar').on('click','li',function(){
     var index = $(this).index();
@@ -646,7 +705,7 @@ $(function(){
   $('.js-control-object').on('click','li',function(){
     scrollIntoView($(this));
     var index = $(this).index() + 1;
-    drawObject(index);
+    drawMiniObject(index);
   });
 
   $('.js-control-scene').on('click','li',function(){
@@ -663,4 +722,28 @@ $(function(){
       Dialog.show(image);
     },100)
   });
+  $('.js-control-upload').on('click', function () {
+      clearRects();
+  })
+  $('.js-control-upload>input').on('change', async (event) => {
+      const file = event.currentTarget.files[0];
+      if( !file.name.match(/.jpg|.jpeg|.gif|.png|.bmp/i) ){
+          Toast.fail('上传图片的格式不正确，请重新选择~')
+      } else {
+          const {url, width, height} = await getBase64( file );
+
+          var coolTexture = PIXI.Sprite.from(url);
+          const MAX_SIZE = 200;
+          if (width > height) {
+              coolTexture.width = MAX_SIZE;
+              coolTexture.height = height * MAX_SIZE / width;
+          } else {
+              coolTexture.height = MAX_SIZE;
+              coolTexture.width = width * MAX_SIZE / height;
+          }
+          setup(coolTexture);
+          // openNewWindowShowImage(image);
+          // drawUploadObject(imgSrc)
+      }
+  })
 });
